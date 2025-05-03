@@ -1,0 +1,46 @@
+name: hear_me_app
+description: "An emergency help app for deaf and mute users."
+
+# This line prevents accidental publishing to pub.dev
+publish_to: 'none'
+
+# Application version info
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8      # أيقونات بنمط iOS
+  geolocator: ^9.0.2           # مكتبة تحديد الموقع
+  image_picker: ^1.0.7         # مكتبة التقاط الصور والفيديوهات من الكاميرا أو المعرض
+  video_player: ^2.3.0         # مكتبة تشغيل الفيديوهات
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0        # قواعد التنظيم والكتابة النظيفة للكود
+
+flutter:
+
+  uses-material-design: true
+
+  assets:
+    - assets/
+
+  # Fonts section (يمكن تفعيله لاحقًا لو أضفنا خطوط مخصصة)
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
