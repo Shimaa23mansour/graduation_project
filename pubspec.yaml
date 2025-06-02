@@ -8,7 +8,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.0
+  sdk: 3.6.1
 
 dependencies:
   flutter:
@@ -18,7 +18,8 @@ dependencies:
   geolocator: ^9.0.2           # مكتبة تحديد الموقع
   image_picker: ^1.0.7         # مكتبة التقاط الصور والفيديوهات من الكاميرا أو المعرض
   video_player: ^2.3.0         # مكتبة تشغيل الفيديوهات
-
+  http:
+  shared_preferences:
 dev_dependencies:
   flutter_test:
     sdk: flutter
