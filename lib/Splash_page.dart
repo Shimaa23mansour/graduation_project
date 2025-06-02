@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,7 +14,11 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // إخفاء الـ status bar
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    // UI setup
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -21,10 +26,19 @@ class _SplashScreenState extends State<SplashScreen> {
         statusBarIconBrightness: Brightness.dark,
       ),
     );
-    // بعد 3 ثواني، ننتقل لصفحة الـ Welcome Page
-    Timer(const Duration(seconds: 3), () {
+
+    // Delay for splash feel
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Token check
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token != null && token.isNotEmpty) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
       Navigator.pushReplacementNamed(context, '/welcome');
-    });
+    }
   }
 
   @override

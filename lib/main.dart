@@ -9,6 +9,8 @@ import 'onboarding_2.dart'; // أضفت الـ import لصفحة Onboarding2
 import 'reset_password_screen.dart'; // ✅ أضفت صفحة Reset Password
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const MyApp());
 }
 

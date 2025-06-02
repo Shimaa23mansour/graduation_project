@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ambulance_videos_page.dart';
 import 'package:hear_me_app/fire_videos_page.dart' as firePage;
 import 'package:hear_me_app/police_videos_page.dart' as policePage;
@@ -15,15 +16,39 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  bool _isLocationPermissionGranted = false;
+  bool _hasShownLocationDialog = false;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () {
-      _showLocationDialog();
+    _checkInitialPermissionStatus();
+  }
+
+  Future<void> _checkInitialPermissionStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    _hasShownLocationDialog = prefs.getBool('hasShownLocationDialog') ?? false;
+
+    if (!_hasShownLocationDialog) {
+      Future.delayed(Duration.zero, () {
+        _showLocationDialog();
+      });
+    } else {
+      await _checkAndUpdatePermissionStatus();
+    }
+  }
+
+  Future<void> _checkAndUpdatePermissionStatus() async {
+    final permissionStatus = await _checkLocationPermission();
+    setState(() {
+      _isLocationPermissionGranted = permissionStatus == LocationPermission.whileInUse ||
+          permissionStatus == LocationPermission.always;
     });
   }
 
   Future<void> _showLocationDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -31,36 +56,27 @@ class _HomePageState extends State<HomePage> {
         return AlertDialog(
           title: const Text('Allow Location Access'),
           content: const Text(
-            'Would you allow us to access your location to provide better emergency support?',
+            'HearMe needs location access to provide better emergency support. Would you like to enable location services?',
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Deny
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await prefs.setBool('hasShownLocationDialog', true);
+                setState(() {
+                  _hasShownLocationDialog = true;
+                });
               },
               child: const Text('No'),
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop(); // Close dialog
-                LocationPermission permission =
-                    await Geolocator.requestPermission();
-                if (permission == LocationPermission.whileInUse ||
-                    permission == LocationPermission.always) {
-                  setState(() {});
-                } else if (permission == LocationPermission.deniedForever) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Location access permanently denied. Please enable it from settings.',
-                      ),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Location access denied')),
-                  );
-                }
+                Navigator.of(context).pop();
+                await _requestLocationPermission();
+                await prefs.setBool('hasShownLocationDialog', true);
+                setState(() {
+                  _hasShownLocationDialog = true;
+                });
               },
               child: const Text('Yes'),
             ),
@@ -70,39 +86,71 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<Position> _getLocationAtStart() async {
-    try {
-      Position position = await _determinePosition();
-      return position;
-    } catch (e) {
-      throw 'Error: $e';
+  Future<LocationPermission> _checkLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enable location services in your device settings.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return LocationPermission.denied;
     }
+
+    return await Geolocator.checkPermission();
   }
 
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+  Future<void> _requestLocationPermission() async {
+    LocationPermission permission = await _checkLocationPermission();
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
-    }
-
-    permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
-      }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return Future.error(
-        'Location permissions are permanently denied, we cannot request permissions.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Location access permanently denied. Please enable it from settings.',
+          ),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: () async {
+              await Geolocator.openAppSettings();
+              await _checkAndUpdatePermissionStatus();
+            },
+          ),
+        ),
+      );
+    } else if (permission == LocationPermission.denied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location access denied')),
+      );
+    } else {
+      setState(() {
+        _isLocationPermissionGranted = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location access granted')),
       );
     }
+  }
 
-    return await Geolocator.getCurrentPosition();
+  Future<Position?> _getLocationAtStart() async {
+    try {
+      if (!_isLocationPermissionGranted) {
+        return null;
+      }
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error getting location: $e')),
+      );
+      return null;
+    }
   }
 
   @override
@@ -116,7 +164,6 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.black),
             onPressed: () {
-              // Navigate to settings page (create SettingsPage later)
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsPage()),
@@ -163,14 +210,14 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 24),
-              FutureBuilder<Position>(
+              FutureBuilder<Position?>(
                 future: _getLocationAtStart(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.only(bottom: 16),
                       child: Text(
-                        'Getting location...',
+                        'Checking location access...',
                         style: TextStyle(fontSize: 16, color: Colors.purple),
                       ),
                     );
@@ -180,6 +227,23 @@ class _HomePageState extends State<HomePage> {
                       child: Text(
                         'Error: ${snapshot.error}',
                         style: TextStyle(fontSize: 16, color: Colors.red),
+                      ),
+                    );
+                  } else if (!_isLocationPermissionGranted) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'Location access needed',
+                            style: TextStyle(fontSize: 16, color: Colors.orange),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: _requestLocationPermission,
+                            child: const Text('Enable'),
+                          ),
+                        ],
                       ),
                     );
                   } else {
